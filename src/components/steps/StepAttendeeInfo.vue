@@ -235,7 +235,7 @@ const TICKET_HIGHLIGHT = {
 
 // Ticket section
 .ticket-section {
-  border-top: 1px solid rgba(0,0,0,0.07);
+  border-top: 1px solid var(--divider-muted);
   padding-top: 24px;
 }
 
@@ -244,7 +244,7 @@ const TICKET_HIGHLIGHT = {
   padding-top: 0;
   margin-bottom: 28px;
   padding-bottom: 28px;
-  border-bottom: 1px solid rgba(0,0,0,0.07);
+  border-bottom: 1px solid var(--divider-muted);
 }
 
 .section-title {

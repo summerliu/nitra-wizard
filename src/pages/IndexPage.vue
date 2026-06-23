@@ -220,8 +220,8 @@ const continueLabel = computed(() => {
   padding: 16px 48px;
   gap: 12px;
   height: 72px;
-  background: #FFFFFF;
-  border-bottom: 1px solid rgba(0,0,0,0.08);
+  background: var(--bg-surface-l0);
+  border-bottom: 1px solid var(--divider-default);
   box-sizing: border-box;
   flex-shrink: 0;
 }
@@ -246,7 +246,7 @@ const continueLabel = computed(() => {
 // Stepper bar
 .stepper-bar {
   background: var(--bg-surface-l0);
-  border-bottom: 1px solid rgba(0,0,0,0.07);
+  border-bottom: 1px solid var(--divider-muted);
   flex-shrink: 0;
 }
 
@@ -280,7 +280,7 @@ const continueLabel = computed(() => {
 // Footer
 .wizard-footer {
   background: var(--bg-surface-l0);
-  border-top: 1px solid rgba(0,0,0,0.07);
+  border-top: 1px solid var(--divider-muted);
   padding: 16px 0;
   flex-shrink: 0;
 }

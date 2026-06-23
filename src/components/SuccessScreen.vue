@@ -38,7 +38,7 @@ function reload() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #FFFFFF;
+  background: var(--bg-surface-l0);
   padding: 40px 24px;
 }
 
@@ -60,7 +60,7 @@ function reload() {
 .success-title {
   font-size: var(--font-size-h2);
   font-weight: 700;
-  color: #15B471;
+  color: var(--bg-success-emphasis-rest);
   margin: 0;
 }
 

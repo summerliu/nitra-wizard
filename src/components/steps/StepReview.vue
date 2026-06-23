@@ -293,7 +293,7 @@ function categoryLabel(cat) {
   background: var(--bg-surface-l1);
   border-radius: 10px;
   overflow: hidden;
-  border: 1px solid rgba(0,0,0,0.06);
+  border: 1px solid var(--divider-muted);
 }
 
 .card-header {
@@ -301,7 +301,7 @@ function categoryLabel(cat) {
   justify-content: space-between;
   align-items: center;
   padding: 14px 18px;
-  border-bottom: 1px solid rgba(0,0,0,0.07);
+  border-bottom: 1px solid var(--divider-muted);
 }
 
 .card-title {
@@ -338,7 +338,7 @@ function categoryLabel(cat) {
   align-items: baseline;
   gap: 16px;
   padding: 10px 18px;
-  border-bottom: 1px solid rgba(0,0,0,0.05);
+  border-bottom: 1px solid var(--divider-muted);
 
   &:last-child { border-bottom: none; }
 
@@ -378,7 +378,7 @@ function categoryLabel(cat) {
 // Grand total
 .total-divider {
   height: 1px;
-  background: rgba(0,0,0,0.1);
+  background: var(--divider-default);
   margin: 0 18px;
 }
 

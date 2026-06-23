@@ -177,7 +177,7 @@ const lineItems = computed(() => {
 
 .summary-divider {
   height: 1px;
-  background: var(--divider-default, rgba(0,0,0,0.1));
+  background: var(--divider-default);
   margin: 12px 0;
 }
 
