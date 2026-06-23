@@ -66,122 +66,130 @@ function stepHasError(stepNum) {
 }
 
 const transitionName = computed(() => direction.value === 'forward' ? 'slide-left' : 'slide-right')
+
+const continueLabel = computed(() => {
+  const labels = { 1: 'Next: Sessions', 2: 'Next: Add-ons', 3: 'Next: Review' }
+  return labels[currentStep.value] ?? 'Continue'
+})
 </script>
 
 <template>
   <q-layout view="hHh lpR fFf">
     <q-page-container>
       <q-page>
-        <SuccessScreen v-if="submitted" />
-
-        <div v-else class="wizard-layout">
-          <!-- Event header -->
+        <div class="wizard-layout">
+          <!-- Event header (always visible) -->
           <header class="event-header">
-            <div class="container">
-              <div class="event-header__inner">
-                <div>
-                  <h1 class="event-title">WebDev Summit 2028</h1>
-                  <p class="event-meta">November 15–16, 2028 · Grand Tech Convention Center, San Francisco, CA</p>
-                </div>
-                <div class="event-badge">
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                    <circle cx="7" cy="7" r="6.25" stroke="currentColor" stroke-width="1.5"/>
-                    <path d="M4.5 7l2 2 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
-                  Registration Open
-                </div>
-              </div>
-            </div>
+            <img src="../assets/Logo.svg" alt="Nitra logo" class="header-logo" />
+            <span class="event-title">WebDev Summit 2028</span>
           </header>
 
-          <!-- Step navigation -->
-          <div class="stepper-bar">
-            <div class="container">
-              <WizardStepper
-                :steps="steps"
-                :current-step="currentStep"
-                :step-has-error="stepHasError"
-                @navigate="goToStep"
-              />
+          <!-- Success screen -->
+          <SuccessScreen v-if="submitted" />
+
+          <!-- Wizard steps -->
+          <template v-else>
+            <!-- Step navigation -->
+            <div class="stepper-bar">
+              <div class="container">
+                <WizardStepper
+                  :steps="steps"
+                  :current-step="currentStep"
+                  :step-has-error="stepHasError"
+                  @navigate="goToStep"
+                />
+              </div>
             </div>
-          </div>
 
-          <!-- Body: step content + sidebar -->
-          <main class="wizard-body">
-            <div class="container">
-              <div class="wizard-columns">
-                <!-- Main step content -->
-                <div class="wizard-main">
-                  <Transition :name="transitionName" mode="out-in">
-                    <StepAttendeeInfo
-                      v-if="currentStep === 1"
-                      key="step-1"
-                      :validation-attempted="validationAttempted"
-                    />
-                    <StepSessionSelect
-                      v-else-if="currentStep === 2"
-                      key="step-2"
-                      :validation-attempted="validationAttempted"
-                    />
-                    <StepAddons
-                      v-else-if="currentStep === 3"
-                      key="step-3"
-                      :validation-attempted="validationAttempted"
-                    />
-                    <StepReview
-                      v-else-if="currentStep === 4"
-                      key="step-4"
-                      :validation-attempted="validationAttempted"
-                      @edit="goToStep"
-                      @submit="handleSubmit"
-                    />
-                  </Transition>
-                </div>
-
-                <!-- Order summary sidebar -->
-                <aside class="wizard-sidebar">
-                  <div class="sidebar-sticky">
-                    <OrderSummary />
+            <!-- Body: step content + sidebar -->
+            <main class="wizard-body">
+              <div class="container">
+                <div class="wizard-columns">
+                  <!-- Main step content -->
+                  <div class="wizard-main">
+                    <Transition :name="transitionName" mode="out-in">
+                      <StepAttendeeInfo
+                        v-if="currentStep === 1"
+                        key="step-1"
+                        :validation-attempted="validationAttempted"
+                      />
+                      <StepSessionSelect
+                        v-else-if="currentStep === 2"
+                        key="step-2"
+                        :validation-attempted="validationAttempted"
+                      />
+                      <StepAddons
+                        v-else-if="currentStep === 3"
+                        key="step-3"
+                        :validation-attempted="validationAttempted"
+                      />
+                      <StepReview
+                        v-else-if="currentStep === 4"
+                        key="step-4"
+                        :validation-attempted="validationAttempted"
+                        @edit="goToStep"
+                        @submit="handleSubmit"
+                      />
+                    </Transition>
                   </div>
-                </aside>
-              </div>
-            </div>
-          </main>
 
-          <!-- Navigation footer (not shown on step 4 — StepReview has its own submit) -->
-          <footer v-if="currentStep < 4" class="wizard-footer">
-            <div class="container">
-              <div class="nav-bar">
-                <button
-                  v-if="currentStep > 1"
-                  class="btn btn--secondary"
-                  type="button"
-                  @click="prevStep"
-                >
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                    <path d="M9 2L3 7l6 5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
-                  Previous
-                </button>
-                <span v-else />
-
-                <div class="nav-center">
-                  <span class="step-indicator">Step {{ currentStep }} of {{ steps.length }}</span>
+                  <!-- Order summary sidebar (hidden on review step) -->
+                  <aside v-if="currentStep < 4" class="wizard-sidebar">
+                    <div class="sidebar-sticky">
+                      <OrderSummary />
+                    </div>
+                  </aside>
                 </div>
-
-                <button
-                  class="btn btn--primary"
-                  type="button"
-                  @click="nextStep"
-                >
-                  Continue
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                    <path d="M5 2l6 5-6 5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
-                </button>
               </div>
-            </div>
-          </footer>
+            </main>
+
+            <!-- Navigation footer -->
+            <footer class="wizard-footer">
+              <div class="container">
+                <div class="nav-bar">
+                  <button
+                    v-if="currentStep > 1"
+                    class="btn btn--secondary"
+                    type="button"
+                    @click="prevStep"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                      <path d="M9 2L3 7l6 5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Back
+                  </button>
+                  <span v-else />
+
+                  <div class="nav-center">
+                    <span class="step-indicator">Step {{ currentStep }} of {{ steps.length }}</span>
+                  </div>
+
+                  <button
+                    v-if="currentStep < 4"
+                    class="btn btn--primary"
+                    type="button"
+                    @click="nextStep"
+                  >
+                    {{ continueLabel }}
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                      <path d="M5 2l6 5-6 5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </button>
+                  <button
+                    v-else
+                    class="btn btn--primary"
+                    type="button"
+                    @click="handleSubmit"
+                  >
+                    Submit Registration
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                      <path d="M5 2l6 5-6 5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </footer>
+          </template>
         </div>
       </q-page>
     </q-page-container>
@@ -206,44 +214,33 @@ const transitionName = computed(() => direction.value === 'forward' ? 'slide-lef
 
 // Header
 .event-header {
-  background: var(--bg-brand-bold-rest);
-  color: white;
-  padding: 20px 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 16px 48px;
+  gap: 12px;
+  height: 72px;
+  background: #FFFFFF;
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+  box-sizing: border-box;
   flex-shrink: 0;
 }
 
-.event-header__inner {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
+.header-logo {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: block;
 }
 
 .event-title {
-  font-size: var(--font-size-h3);
+  font-size: var(--font-size-subtitle1);
   font-weight: 630;
-  color: white;
-  margin: 0 0 4px;
-}
-
-.event-meta {
-  font-size: var(--font-size-sm);
-  color: rgba(255,255,255,0.7);
-  margin: 0;
-}
-
-.event-badge {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--font-size-sm);
-  font-weight: 570;
-  padding: 6px 14px;
-  border-radius: 20px;
-  background: rgba(255,255,255,0.15);
-  color: rgba(255,255,255,0.9);
+  color: var(--text-neutral-default);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: auto;
 }
 
 // Stepper bar
@@ -317,11 +314,11 @@ const transitionName = computed(() => direction.value === 'forward' ? 'slide-lef
   transition: background 0.15s, border-color 0.15s;
 
   &--primary {
-    background: var(--bg-brand-emphasis-rest);
+    background: var(--bg-accent-emphasis-rest);
     color: white;
 
-    &:hover { background: var(--bg-brand-emphasis-hover); }
-    &:active { background: var(--bg-brand-emphasis-active); }
+    &:hover { background: var(--bg-accent-emphasis-hover); }
+    &:active { background: var(--bg-accent-emphasis-active); }
   }
 
   &--secondary {
@@ -356,6 +353,7 @@ const transitionName = computed(() => direction.value === 'forward' ? 'slide-lef
 
 @media (max-width: 600px) {
   .container { padding: 0 16px; }
+  .event-header { padding: 12px 16px; height: auto; }
   .event-badge { display: none; }
   .nav-center { display: none; }
 }

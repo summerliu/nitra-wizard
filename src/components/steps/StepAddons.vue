@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useRegistration } from '../../composables/useRegistration.js'
 import { useValidation } from '../../composables/useValidation.js'
 import { formatCurrency, formatTimeRange } from '../../utils/format.js'
@@ -22,159 +22,136 @@ const {
 
 const { step3Errors } = useValidation()
 
-/** Fast lookup for selected addon items by ID. */
+const activeTab = ref('workshop')
+
+const tabs = [
+  { key: 'workshop', label: 'Workshops' },
+  { key: 'meal', label: 'Meal Packages' },
+  { key: 'merchandise', label: 'Merchandise' },
+]
+
 const selectedAddonMap = computed(() =>
   Object.fromEntries(selectedAddons.value.map(item => [item.id, item]))
 )
 
-/**
- * Return workshop pricing label, factoring in VIP discount.
- * @param {{ price: number }} workshop
- * @returns {{ original: number, discounted: number | null }}
- */
-function workshopPricing(workshop) {
-  return {
-    original: workshop.price,
-    discounted: isVip.value ? workshop.price * 0.9 : null,
-  }
+function workshopPrice(ws) {
+  return isVip.value ? ws.price * 0.9 : ws.price
+}
+
+function isWorkshopDisabled(ws) {
+  return ws.registered >= ws.capacity || isWorkshopConflicting(ws)
+}
+
+function formatWorkshopDate(ws) {
+  const d = new Date(ws.date + (ws.date.includes('T') ? '' : 'T00:00:00Z'))
+  const month = d.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })
+  const day = d.toLocaleDateString('en-US', { day: 'numeric', timeZone: 'UTC' })
+  return `${month} ${day}, ${formatTimeRange(ws.date, ws.endDate)}`
+}
+
+function spotsLabel(ws) {
+  const remaining = ws.capacity - ws.registered
+  if (remaining <= 0) return null
+  return `${remaining} spot${remaining !== 1 ? 's' : ''} remaining`
 }
 </script>
 
 <template>
   <div class="step-content">
-    <h2 class="step-title">Add-ons</h2>
+    <h2 class="step-title">Select Add-ons</h2>
     <p class="step-subtitle">Enhance your experience with workshops, meals, and merchandise.</p>
 
-    <!-- Merchandise shipping banner -->
-    <div v-if="hasMerchandise" class="info-banner">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/>
-        <path d="M8 7v5M8 5v.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
-      </svg>
-      Merchandise items will be shipped to your address one week before the conference. Please ensure your shipping address in Step 1 is correct.
+    <!-- Category tabs -->
+    <div class="category-tabs">
+      <button
+        v-for="tab in tabs"
+        :key="tab.key"
+        class="category-tab"
+        :class="{ 'category-tab--active': activeTab === tab.key }"
+        type="button"
+        @click="activeTab = tab.key"
+      >{{ tab.label }}</button>
     </div>
 
     <!-- ── Workshops ── -->
-    <section class="addon-section">
-      <div class="section-header">
-        <h3 class="section-title">Workshops</h3>
-        <span v-if="isVip" class="vip-badge">VIP: 10% off all workshops</span>
+    <div v-if="activeTab === 'workshop'" class="addon-list">
+      <div v-if="isVip" class="vip-notice">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0">
+          <circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M7 4v4M7 9.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        VIP discount: 10% off all workshops
       </div>
 
-      <div class="addon-grid">
-        <div
-          v-for="ws in addonsByCategory.workshop"
-          :key="ws.id"
-          class="addon-card"
-          :class="{
-            'addon-card--selected': isAddonSelected(ws.id),
-            'addon-card--disabled': ws.registered >= ws.capacity || isWorkshopConflicting(ws),
-          }"
-        >
-          <div class="addon-body">
-            <div class="addon-header">
-              <div>
-                <h4 class="addon-name">{{ ws.name }}</h4>
-                <p class="addon-desc">{{ ws.description }}</p>
-                <p class="addon-time">{{ formatTimeRange(ws.date, ws.endDate) }}</p>
-              </div>
-              <div class="addon-price-block">
-                <span v-if="workshopPricing(ws).discounted" class="price-original">
-                  {{ formatCurrency(workshopPricing(ws).original) }}
-                </span>
-                <span class="addon-price">
-                  {{ formatCurrency(workshopPricing(ws).discounted ?? workshopPricing(ws).original) }}
-                </span>
-              </div>
-            </div>
-
-            <div class="addon-status">
-              <span v-if="ws.registered >= ws.capacity" class="status-badge status-badge--full">
-                Full ({{ ws.capacity }}/{{ ws.capacity }})
-              </span>
-              <span v-else-if="isWorkshopConflicting(ws)" class="status-badge status-badge--conflict">
-                Conflicts with a selected session
-              </span>
-              <span v-else class="spots-text">
-                {{ ws.capacity - ws.registered }} spot{{ ws.capacity - ws.registered !== 1 ? 's' : '' }} left
-              </span>
-            </div>
-          </div>
-
-          <div class="addon-actions">
-            <button
-              v-if="!isAddonSelected(ws.id)"
-              class="btn-add"
-              :disabled="ws.registered >= ws.capacity || isWorkshopConflicting(ws)"
-              type="button"
-              @click="toggleAddon(ws.id)"
-            >Add</button>
-            <button
-              v-else
-              class="btn-remove"
-              type="button"
-              @click="toggleAddon(ws.id)"
-            >Remove</button>
+      <div
+        v-for="ws in addonsByCategory.workshop"
+        :key="ws.id"
+        class="addon-card"
+        :class="{
+          'addon-card--selected': isAddonSelected(ws.id),
+          'addon-card--disabled': isWorkshopDisabled(ws),
+        }"
+        @click="!isWorkshopDisabled(ws) && toggleAddon(ws.id)"
+      >
+        <div class="addon-row-top">
+          <h4 class="addon-name">{{ ws.name }}</h4>
+          <div class="addon-price-group">
+            <span v-if="isVip" class="price-original">{{ formatCurrency(ws.price) }}</span>
+            <span class="addon-price">{{ formatCurrency(workshopPrice(ws)) }}</span>
           </div>
         </div>
+        <p class="addon-desc">{{ ws.description }}</p>
+        <p class="addon-meta">{{ formatWorkshopDate(ws) }}</p>
+        <p v-if="ws.registered >= ws.capacity" class="sold-out-text">Sold Out</p>
+        <p v-else-if="isWorkshopConflicting(ws)" class="conflict-text">Conflicts with a selected session</p>
+        <p v-else class="spots-text">{{ spotsLabel(ws) }}</p>
       </div>
-    </section>
+    </div>
 
     <!-- ── Meal Packages ── -->
-    <section class="addon-section">
-      <h3 class="section-title">Meal Packages</h3>
-
-      <div class="addon-grid">
-        <div
-          v-for="meal in addonsByCategory.meal"
-          :key="meal.id"
-          class="addon-card addon-card--row"
-          :class="{ 'addon-card--selected': isAddonSelected(meal.id) }"
-          @click="toggleAddon(meal.id)"
-          style="cursor: pointer"
-        >
-          <div class="addon-body">
-            <div class="addon-header">
-              <div>
-                <h4 class="addon-name">{{ meal.name }}</h4>
-                <p class="addon-desc">{{ meal.description }}</p>
-              </div>
-              <span class="addon-price">{{ formatCurrency(meal.price) }}</span>
-            </div>
-          </div>
-          <div class="addon-actions">
-            <div class="check-toggle" :class="{ active: isAddonSelected(meal.id) }">
-              <svg v-if="isAddonSelected(meal.id)" width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M2 7l3.5 3.5L12 3" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </div>
-          </div>
+    <div v-else-if="activeTab === 'meal'" class="addon-list">
+      <div
+        v-for="meal in addonsByCategory.meal"
+        :key="meal.id"
+        class="addon-card"
+        :class="{ 'addon-card--selected': isAddonSelected(meal.id) }"
+        @click="toggleAddon(meal.id)"
+      >
+        <div class="addon-row-top">
+          <h4 class="addon-name">{{ meal.name }}</h4>
+          <span class="addon-price">{{ formatCurrency(meal.price) }}</span>
         </div>
+        <p class="addon-desc">{{ meal.description }}</p>
       </div>
-    </section>
+    </div>
 
     <!-- ── Merchandise ── -->
-    <section class="addon-section">
-      <h3 class="section-title">Merchandise</h3>
+    <div v-else-if="activeTab === 'merchandise'" class="addon-list">
+      <div v-if="hasMerchandise" class="shipping-notice">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0">
+          <circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M7 6v4M7 4v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        Merchandise items will be shipped to your address one week before the conference. Please ensure your shipping address in Step 1 is correct.
+      </div>
 
-      <div class="addon-grid">
-        <div
-          v-for="item in addonsByCategory.merchandise"
-          :key="item.id"
-          class="addon-card"
-          :class="{ 'addon-card--selected': isAddonSelected(item.id) }"
-        >
-          <div class="addon-body">
-            <div class="addon-header">
-              <div>
-                <h4 class="addon-name">{{ item.name }}</h4>
-                <p class="addon-desc">{{ item.description }}</p>
-              </div>
-              <span class="addon-price">{{ formatCurrency(item.price) }}</span>
-            </div>
+      <div
+        v-for="item in addonsByCategory.merchandise"
+        :key="item.id"
+        class="addon-card"
+        :class="{ 'addon-card--selected': isAddonSelected(item.id) }"
+        @click="!isAddonSelected(item.id) && toggleAddon(item.id)"
+      >
+        <div class="addon-row-top">
+          <h4 class="addon-name">{{ item.name }}</h4>
+          <span class="addon-price">{{ formatCurrency(item.price) }}</span>
+        </div>
+        <p class="addon-desc">{{ item.description }}</p>
 
-            <!-- Size selector -->
-            <div v-if="isAddonSelected(item.id) && item.sizes" class="size-selector">
+        <template v-if="isAddonSelected(item.id)">
+          <!-- Size selector -->
+          <div v-if="item.sizes" class="merch-controls">
+            <div class="control-row">
               <label class="control-label">Size</label>
               <div class="size-options">
                 <button
@@ -183,46 +160,29 @@ function workshopPricing(workshop) {
                   class="size-btn"
                   :class="{ 'size-btn--active': selectedAddonMap[item.id]?.size === size }"
                   type="button"
-                  @click="updateAddon(item.id, { size })"
+                  @click.stop="updateAddon(item.id, { size })"
                 >{{ size }}</button>
               </div>
-              <p
-                v-if="props.validationAttempted && step3Errors[item.id]"
-                class="field-error"
-              >{{ step3Errors[item.id] }}</p>
             </div>
+            <p v-if="props.validationAttempted && step3Errors[item.id]" class="field-error">{{ step3Errors[item.id] }}</p>
+          </div>
 
-            <!-- Quantity picker -->
-            <div v-if="isAddonSelected(item.id)" class="qty-row">
+          <!-- Quantity + remove -->
+          <div class="merch-controls">
+            <div class="control-row">
               <label class="control-label">Quantity</label>
               <QuantityPicker
                 :model-value="selectedAddonMap[item.id]?.quantity ?? 1"
                 :max="item.maxQuantity"
                 @update:model-value="updateAddon(item.id, { quantity: $event })"
               />
-              <span class="qty-subtotal">
-                = {{ formatCurrency((selectedAddonMap[item.id]?.quantity ?? 1) * item.price) }}
-              </span>
+              <span class="qty-subtotal">= {{ formatCurrency((selectedAddonMap[item.id]?.quantity ?? 1) * item.price) }}</span>
             </div>
+            <button class="btn-remove" type="button" @click.stop="toggleAddon(item.id)">Remove</button>
           </div>
-
-          <div class="addon-actions">
-            <button
-              v-if="!isAddonSelected(item.id)"
-              class="btn-add"
-              type="button"
-              @click="toggleAddon(item.id)"
-            >Add</button>
-            <button
-              v-else
-              class="btn-remove"
-              type="button"
-              @click="toggleAddon(item.id)"
-            >Remove</button>
-          </div>
-        </div>
+        </template>
       </div>
-    </section>
+    </div>
   </div>
 </template>
 
@@ -247,120 +207,118 @@ function workshopPricing(workshop) {
   margin: 0 0 20px;
 }
 
-.info-banner {
+// Category tabs
+.category-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.category-tab {
+  padding: 7px 20px;
+  border-radius: 20px;
+  font-size: var(--font-size-sm);
+  font-weight: 610;
+  border: 1.5px solid var(--border-neutral-muted);
+  background: var(--bg-surface-l0);
+  color: var(--text-neutral-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &--active {
+    background: var(--bg-brand-emphasis-rest);
+    color: white;
+    border-color: var(--bg-brand-emphasis-rest);
+  }
+
+  &:hover:not(.category-tab--active) {
+    background: var(--bg-neutral-subtle-hover);
+    border-color: var(--border-neutral-emphasis);
+  }
+}
+
+// Notices
+.vip-notice,
+.shipping-notice {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 12px 16px;
-  background: var(--bg-info-muted-rest);
-  border: 1px solid var(--border-info-muted);
+  gap: 8px;
+  padding: 10px 14px;
   border-radius: 8px;
   font-size: var(--font-size-sm);
-  color: var(--text-info-emphasis);
-  margin-bottom: 20px;
-
-  svg { flex-shrink: 0; margin-top: 1px; }
-}
-
-.addon-section {
-  margin-bottom: 28px;
-
-  &:last-child { margin-bottom: 0; }
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
   margin-bottom: 14px;
 }
 
-.section-title {
-  font-size: var(--font-size-subtitle1);
-  font-weight: 610;
-  color: var(--text-neutral-default);
-  margin: 0 0 14px;
-}
-
-.section-header .section-title { margin-bottom: 0; }
-
-.vip-badge {
-  font-size: 11px;
-  font-weight: 610;
-  padding: 3px 8px;
-  border-radius: 4px;
-  background: var(--bg-brand-muted-rest);
+.vip-notice {
+  background: var(--bg-brand-subtle-rest);
   color: var(--text-brand-emphasis);
+  border: 1px solid var(--border-brand-quiet);
 }
 
-.addon-grid {
+.shipping-notice {
+  background: var(--bg-info-muted-rest);
+  color: var(--text-info-emphasis);
+  border: 1px solid var(--border-info-muted);
+}
+
+// Add-on list + cards
+.addon-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
 .addon-card {
-  display: flex;
-  align-items: stretch;
   border: 1.5px solid var(--border-neutral-muted);
   border-radius: 10px;
+  padding: 16px;
   background: var(--bg-surface-l0);
-  overflow: hidden;
-  transition: border-color 0.15s, background 0.15s;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
 
   &:hover:not(.addon-card--disabled) {
     border-color: var(--border-brand-muted);
+    background: var(--bg-brand-quiet-hover);
   }
 
   &--selected {
     border-color: var(--border-brand-emphasis);
     background: var(--bg-brand-subtle-rest);
+    box-shadow: 0 0 0 3px var(--border-brand-opacity);
+
+    &:hover { background: var(--bg-brand-subtle-hover); }
   }
 
   &--disabled {
-    background: var(--bg-surface-l1);
     opacity: 0.55;
-  }
+    cursor: not-allowed;
+    background: var(--bg-surface-l1);
 
-  &--row {
-    &:hover { background: var(--bg-brand-quiet-hover); }
+    &:hover {
+      border-color: var(--border-neutral-muted);
+      background: var(--bg-surface-l1);
+    }
   }
 }
 
-.addon-body {
-  flex: 1;
-  padding: 14px 16px;
-}
-
-.addon-header {
+.addon-row-top {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 12px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .addon-name {
   font-size: var(--font-size-md);
-  font-weight: 610;
+  font-weight: 630;
   color: var(--text-neutral-default);
-  margin: 0 0 4px;
-}
-
-.addon-desc {
-  font-size: var(--font-size-sm);
-  color: var(--text-neutral-muted);
   margin: 0;
-  line-height: 1.4;
+
+  .addon-card--disabled & { color: var(--text-neutral-quiet); }
 }
 
-.addon-time {
-  font-size: var(--font-size-sm);
-  color: var(--text-neutral-quiet);
-  margin: 4px 0 0;
-}
-
-.addon-price-block {
+.addon-price-group {
   text-align: right;
   flex-shrink: 0;
 }
@@ -374,122 +332,74 @@ function workshopPricing(workshop) {
 
 .addon-price {
   font-size: var(--font-size-subtitle2);
-  font-weight: 610;
+  font-weight: 630;
   color: var(--text-neutral-default);
   white-space: nowrap;
   flex-shrink: 0;
-  align-self: flex-start;
-  margin-top: 2px;
+
+  .addon-card--disabled & { color: var(--text-neutral-quiet); }
 }
 
-.addon-status {
-  margin-top: 6px;
+.addon-desc {
+  font-size: var(--font-size-sm);
+  color: var(--text-neutral-muted);
+  margin: 0 0 4px;
+  line-height: 1.4;
+
+  .addon-card--disabled & { color: var(--text-neutral-quiet); }
 }
 
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: 11px;
+.addon-meta {
+  font-size: var(--font-size-sm);
+  color: var(--text-neutral-quiet);
+  margin: 0 0 4px;
+}
+
+.sold-out-text {
+  font-size: var(--font-size-sm);
+  color: var(--text-neutral-muted);
   font-weight: 570;
-  padding: 2px 8px;
-  border-radius: 4px;
+  margin: 0;
+}
 
-  &--full {
-    background: var(--bg-neutral-muted-rest);
-    color: var(--text-neutral-muted);
-  }
-
-  &--conflict {
-    background: var(--bg-warning-subtle-rest);
-    color: var(--text-warning-emphasis);
-  }
+.conflict-text {
+  font-size: var(--font-size-sm);
+  color: var(--text-warning-emphasis);
+  font-weight: 570;
+  margin: 0;
 }
 
 .spots-text {
   font-size: var(--font-size-sm);
   color: var(--text-neutral-quiet);
+  margin: 0;
 }
 
-.addon-actions {
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 14px 14px 14px 8px;
-  border-left: 1px solid rgba(0,0,0,0.06);
-  flex-shrink: 0;
+// Merchandise controls
+.merch-controls {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0,0,0,0.06);
 }
 
-.btn-add {
-  padding: 6px 16px;
-  border-radius: 6px;
-  font-size: var(--font-size-sm);
-  font-weight: 570;
-  border: 1.5px solid var(--border-brand-emphasis);
-  background: transparent;
-  color: var(--text-brand-default);
-  cursor: pointer;
-  transition: background 0.15s;
-
-  &:hover:not(:disabled) {
-    background: var(--bg-brand-subtle-rest);
-  }
-
-  &:disabled {
-    border-color: var(--border-neutral-muted);
-    color: var(--text-neutral-disabled);
-    cursor: not-allowed;
-  }
-}
-
-.btn-remove {
-  padding: 6px 16px;
-  border-radius: 6px;
-  font-size: var(--font-size-sm);
-  font-weight: 570;
-  border: 1.5px solid var(--border-danger-muted);
-  background: transparent;
-  color: var(--text-danger-default);
-  cursor: pointer;
-  transition: background 0.15s;
-
-  &:hover {
-    background: var(--bg-danger-subtle-rest);
-  }
-}
-
-.check-toggle {
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  border: 2px solid var(--border-neutral-muted);
+.control-row {
   display: flex;
   align-items: center;
-  justify-content: center;
-  transition: all 0.15s;
-
-  &.active {
-    background: var(--bg-brand-emphasis-rest);
-    border-color: var(--bg-brand-emphasis-rest);
-  }
-}
-
-.size-selector {
-  margin-top: 10px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .control-label {
-  display: block;
   font-size: var(--font-size-sm);
   font-weight: 570;
   color: var(--text-neutral-muted);
-  margin-bottom: 6px;
+  min-width: 52px;
 }
 
 .size-options {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 4px;
 }
 
 .size-btn {
@@ -512,27 +422,34 @@ function workshopPricing(workshop) {
   }
 }
 
-.qty-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 10px;
-
-  .control-label { margin-bottom: 0; }
-}
-
 .qty-subtotal {
   font-size: var(--font-size-sm);
   color: var(--text-neutral-muted);
 }
 
+.btn-remove {
+  margin-top: 10px;
+  padding: 5px 14px;
+  border-radius: 6px;
+  font-size: var(--font-size-sm);
+  font-weight: 570;
+  border: 1.5px solid var(--border-danger-muted);
+  background: transparent;
+  color: var(--text-danger-default);
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover { background: var(--bg-danger-subtle-rest); }
+}
+
 .field-error {
   font-size: var(--font-size-sm);
   color: var(--text-danger-default);
-  margin-top: 4px;
+  margin: 4px 0 0;
 }
 
 @media (max-width: 767px) {
   .step-content { padding: 16px; }
+  .category-tabs { flex-wrap: wrap; }
 }
 </style>

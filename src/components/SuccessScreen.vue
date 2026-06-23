@@ -1,139 +1,96 @@
 <script setup>
 import { useRegistration } from '../composables/useRegistration.js'
-import { formatCurrency } from '../utils/format.js'
 
-const { attendeeInfo, ticketType, grandTotal, event } = useRegistration()
+const { attendeeInfo, ticketType, event } = useRegistration()
+
+const confirmationNumber = `WDS-2028-${Math.floor(10000 + Math.random() * 90000)}`
+
+function reload() {
+  window.location.reload()
+}
 </script>
 
 <template>
-  <div class="success-wrapper">
-    <div class="success-card">
-      <div class="success-icon">
-        <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-          <circle cx="20" cy="20" r="20" fill="var(--bg-success-subtle-rest)"/>
-          <path d="M10 20l7 7L30 13" stroke="var(--text-success-emphasis)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </div>
+  <div class="success-screen">
+    <div class="success-content">
+      <img src="../assets/Success Icon.svg" alt="Success" class="success-icon" />
 
-      <h1 class="success-title">You're registered!</h1>
+      <h1 class="success-title">Registration Complete!</h1>
+
+      <p class="confirmation-num">Confirmation #{{ confirmationNumber }}</p>
+
       <p class="success-msg">
-        Thank you, <strong>{{ attendeeInfo.fullName || 'attendee' }}</strong>. Your registration for
-        <strong>{{ event.name }}</strong> is confirmed.
+        Thank you, {{ attendeeInfo.fullName || 'attendee' }}! Your {{ ticketType?.name ?? '' }} registration
+        for {{ event.name }} is confirmed.<br />
+        You will receive a confirmation email at {{ attendeeInfo.email }}.
       </p>
 
-      <div class="confirmation-details">
-        <div class="detail-row">
-          <span class="detail-label">Confirmation sent to</span>
-          <span class="detail-value">{{ attendeeInfo.email }}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Ticket type</span>
-          <span class="detail-value">{{ ticketType?.name }}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Total charged</span>
-          <span class="detail-value total">{{ formatCurrency(grandTotal) }}</span>
-        </div>
-      </div>
-
-      <div class="event-info">
-        <div class="event-info__dates">📅 November 15–16, 2028</div>
-        <div class="event-info__venue">📍 {{ event.venue.name }}, San Francisco</div>
-      </div>
-
-      <p class="success-footer">
-        A confirmation email with your ticket details has been sent to your registered address.
-        See you at WebDev Summit 2028!
-      </p>
+      <button class="btn-home" type="button" @click="reload">
+        Back to Home
+      </button>
     </div>
   </div>
 </template>
 
 <style scoped lang="scss">
-.success-wrapper {
-  min-height: 80vh;
+.success-screen {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
+  background: #FFFFFF;
   padding: 40px 24px;
 }
 
-.success-card {
+.success-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
   max-width: 480px;
   width: 100%;
-  background: var(--bg-surface-l0);
-  border: 1.5px solid var(--border-neutral-muted);
-  border-radius: 16px;
-  padding: 40px 36px;
-  text-align: center;
+  gap: 16px;
 }
 
 .success-icon {
-  margin-bottom: 20px;
+  width: 80px;
+  height: 80px;
 }
 
 .success-title {
   font-size: var(--font-size-h2);
-  font-weight: 630;
+  font-weight: 700;
+  color: #15B471;
+  margin: 0;
+}
+
+.confirmation-num {
+  font-size: var(--font-size-md);
+  font-weight: 570;
   color: var(--text-neutral-default);
-  margin: 0 0 12px;
+  margin: 0;
 }
 
 .success-msg {
-  font-size: var(--font-size-md);
-  color: var(--text-neutral-muted);
-  margin: 0 0 28px;
-  line-height: 1.5;
-}
-
-.confirmation-details {
-  background: var(--bg-surface-l1);
-  border-radius: 10px;
-  padding: 16px 20px;
-  margin-bottom: 20px;
-  text-align: left;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.detail-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.detail-label {
-  font-size: var(--font-size-sm);
-  color: var(--text-neutral-quiet);
-}
-
-.detail-value {
-  font-size: var(--font-size-sm);
-  font-weight: 570;
-  color: var(--text-neutral-default);
-  text-align: right;
-
-  &.total {
-    font-size: var(--font-size-md);
-    font-weight: 630;
-    color: var(--text-brand-emphasis);
-  }
-}
-
-.event-info {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 24px;
   font-size: var(--font-size-sm);
   color: var(--text-neutral-muted);
-}
-
-.success-footer {
-  font-size: var(--font-size-sm);
-  color: var(--text-neutral-quiet);
+  line-height: 1.6;
   margin: 0;
-  line-height: 1.5;
+}
+
+.btn-home {
+  margin-top: 4px;
+  padding: 10px 28px;
+  border-radius: 24px;
+  font-size: var(--font-size-md);
+  font-weight: 570;
+  border: none;
+  background: var(--bg-accent-emphasis-rest);
+  color: white;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover { background: var(--bg-accent-emphasis-hover); }
+  &:active { background: var(--bg-accent-emphasis-active); }
 }
 </style>

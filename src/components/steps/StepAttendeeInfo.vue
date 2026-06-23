@@ -20,9 +20,49 @@ const TICKET_HIGHLIGHT = {
 <template>
   <div class="step-content">
     <h2 class="step-title">Attendee Information</h2>
-    <p class="step-subtitle">Please provide your details and select a ticket type.</p>
+    <p class="step-subtitle">Select your ticket type and fill in your details.</p>
+
+    <!-- Ticket type selection -->
+    <div class="ticket-section ticket-section--top">
+      <h3 class="section-title">Select Ticket Type</h3>
+      <div v-if="props.validationAttempted && step1Errors.ticketType" class="field-error mb-3">{{ step1Errors.ticketType }}</div>
+      <div class="ticket-grid">
+        <div
+          v-for="ticket in event.ticketTypes"
+          :key="ticket.id"
+          class="ticket-card"
+          :class="[TICKET_HIGHLIGHT[ticket.id], { 'ticket-card--selected': ticketTypeId === ticket.id }]"
+          @click="ticketTypeId = ticket.id"
+          role="radio"
+          :aria-checked="ticketTypeId === ticket.id"
+          tabindex="0"
+          @keydown.enter.space.prevent="ticketTypeId = ticket.id"
+        >
+          <div v-if="ticket.id === 'vip'" class="popular-badge">Most Popular</div>
+          <div class="ticket-header">
+            <div class="ticket-name">{{ ticket.name }}</div>
+            <div class="ticket-price">{{ formatCurrency(ticket.price) }}</div>
+          </div>
+          <p class="ticket-desc">{{ ticket.description }}</p>
+          <ul class="ticket-perks">
+            <li v-for="perk in ticket.perks" :key="perk">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="perk-icon">
+                <path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              {{ perk }}
+            </li>
+          </ul>
+          <div class="ticket-radio">
+            <div class="radio-circle" :class="{ active: ticketTypeId === ticket.id }">
+              <div v-if="ticketTypeId === ticket.id" class="radio-dot" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Personal info -->
+    <h3 class="section-title">Personal Details</h3>
     <div class="form-grid">
       <div class="field">
         <label class="field-label">Full Name <span class="req">*</span></label>
@@ -101,43 +141,6 @@ const TICKET_HIGHLIGHT = {
       </div>
     </div>
 
-    <!-- Ticket type selection -->
-    <div class="ticket-section">
-      <h3 class="section-title">Select Ticket Type</h3>
-      <div v-if="props.validationAttempted && step1Errors.ticketType" class="field-error mb-3">{{ step1Errors.ticketType }}</div>
-      <div class="ticket-grid">
-        <div
-          v-for="ticket in event.ticketTypes"
-          :key="ticket.id"
-          class="ticket-card"
-          :class="[TICKET_HIGHLIGHT[ticket.id], { 'ticket-card--selected': ticketTypeId === ticket.id }]"
-          @click="ticketTypeId = ticket.id"
-          role="radio"
-          :aria-checked="ticketTypeId === ticket.id"
-          tabindex="0"
-          @keydown.enter.space.prevent="ticketTypeId = ticket.id"
-        >
-          <div class="ticket-header">
-            <div class="ticket-name">{{ ticket.name }}</div>
-            <div class="ticket-price">{{ formatCurrency(ticket.price) }}</div>
-          </div>
-          <p class="ticket-desc">{{ ticket.description }}</p>
-          <ul class="ticket-perks">
-            <li v-for="perk in ticket.perks" :key="perk">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="perk-icon">
-                <path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              {{ perk }}
-            </li>
-          </ul>
-          <div class="ticket-radio">
-            <div class="radio-circle" :class="{ active: ticketTypeId === ticket.id }">
-              <div v-if="ticketTypeId === ticket.id" class="radio-dot" />
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -236,6 +239,14 @@ const TICKET_HIGHLIGHT = {
   padding-top: 24px;
 }
 
+.ticket-section--top {
+  border-top: none;
+  padding-top: 0;
+  margin-bottom: 28px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid rgba(0,0,0,0.07);
+}
+
 .section-title {
   font-size: var(--font-size-subtitle1);
   font-weight: 610;
@@ -247,6 +258,19 @@ const TICKET_HIGHLIGHT = {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
+}
+
+.popular-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 630;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--bg-accent-emphasis-rest);
+  color: white;
+  margin-bottom: 8px;
 }
 
 .ticket-card {

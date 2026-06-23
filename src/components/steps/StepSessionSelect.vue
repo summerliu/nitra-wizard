@@ -1,8 +1,8 @@
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useRegistration } from '../../composables/useRegistration.js'
 import { useValidation } from '../../composables/useValidation.js'
-import { formatDate, formatTimeRange } from '../../utils/format.js'
+import { formatTimeRange } from '../../utils/format.js'
 
 const props = defineProps({
   validationAttempted: { type: Boolean, default: false },
@@ -13,117 +13,130 @@ const {
   selectedSessionIds,
   conflictingSessionIds,
   toggleSession,
-  sessions,
 } = useRegistration()
 
 const { step2Errors } = useValidation()
 
-const TRACK_CLASSES = {
+const activeDateKey = ref(null)
+const activeDate = computed({
+  get: () => activeDateKey.value ?? sessionsByDate.value[0]?.[0] ?? null,
+  set: (v) => { activeDateKey.value = v },
+})
+
+const currentSessions = computed(() => {
+  const entry = sessionsByDate.value.find(([date]) => date === activeDate.value)
+  return entry?.[1] ?? []
+})
+
+function formatTabDate(dateStr) {
+  return new Date(dateStr + 'T00:00:00Z').toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', timeZone: 'UTC',
+  })
+}
+
+function capacityBarWidth(session) {
+  return Math.min(100, Math.round((session.registered / session.capacity) * 100)) + '%'
+}
+
+function capacityBarClass(session) {
+  const pct = (session.capacity - session.registered) / session.capacity
+  if (pct <= 0) return 'bar--full'
+  if (pct < 0.2) return 'bar--low'
+  if (pct < 0.5) return 'bar--medium'
+  return 'bar--high'
+}
+
+function spotsInfo(session) {
+  const remaining = session.capacity - session.registered
+  if (remaining <= 0) return { text: 'Sold Out', cls: 'spots--sold-out' }
+  const pct = remaining / session.capacity
+  if (pct < 0.2) return { text: `${remaining} spots left`, cls: 'spots--low' }
+  if (pct < 0.5) return { text: `${remaining} spots left`, cls: 'spots--medium' }
+  return { text: `${remaining} spots left`, cls: 'spots--high' }
+}
+
+const TRACK_BADGE_CLASS = {
   main: 'track-main',
   frontend: 'track-frontend',
   backend: 'track-backend',
   devops: 'track-devops',
 }
-
-/**
- * Compute the remaining capacity label for a session.
- * @param {{ capacity: number, registered: number }} session
- * @returns {{ text: string, urgent: boolean }}
- */
-function spotsInfo(session) {
-  const remaining = session.capacity - session.registered
-  return {
-    text: remaining <= 0 ? 'Full' : remaining === 1 ? '1 spot left' : `${remaining} spots left`,
-    urgent: remaining > 0 && remaining <= 10,
-  }
-}
 </script>
 
 <template>
   <div class="step-content">
-    <h2 class="step-title">Session Selection</h2>
-    <p class="step-subtitle">Choose sessions to attend. Time conflicts will be flagged at submission.</p>
-
     <!-- Conflict warning -->
     <div v-if="props.validationAttempted && step2Errors.conflicts" class="alert alert--danger">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0">
         <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/>
         <path d="M8 5v4M8 11v.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
       </svg>
       {{ step2Errors.conflicts }}
     </div>
 
-    <!-- Sessions by day -->
-    <div v-for="([date, daySessions]) in sessionsByDate" :key="date" class="day-group">
-      <div class="day-header">
-        <h3 class="day-title">{{ formatDate(date) }}</h3>
-        <span class="day-count">{{ daySessions.length }} sessions</span>
-      </div>
+    <h2 class="step-title">Select Sessions</h2>
 
-      <div class="sessions-grid">
-        <div
-          v-for="session in daySessions"
-          :key="session.id"
-          class="session-card"
-          :class="{
-            'session-card--selected': selectedSessionIds.includes(session.id),
-            'session-card--full': session.registered >= session.capacity,
-            'session-card--conflict': conflictingSessionIds.has(session.id),
-          }"
-          @click="session.registered < session.capacity && toggleSession(session.id)"
-          :style="session.registered >= session.capacity ? 'cursor: not-allowed' : 'cursor: pointer'"
-          :aria-disabled="session.registered >= session.capacity"
-        >
-          <div class="session-meta">
-            <span class="track-badge" :class="TRACK_CLASSES[session.track]">
-              {{ session.track }}
-            </span>
-            <span class="session-time">{{ formatTimeRange(session.date, session.endDate) }}</span>
+    <!-- Date tabs -->
+    <div class="date-tabs">
+      <button
+        v-for="([date]) in sessionsByDate"
+        :key="date"
+        class="date-tab"
+        :class="{ 'date-tab--active': activeDate === date }"
+        type="button"
+        @click="activeDate = date"
+      >{{ formatTabDate(date) }}</button>
+    </div>
+
+    <!-- Selection count -->
+    <p class="selection-count">
+      {{ selectedSessionIds.length }} session{{ selectedSessionIds.length !== 1 ? 's' : '' }} selected
+    </p>
+
+    <!-- 2-column session grid -->
+    <div class="sessions-grid">
+      <div
+        v-for="session in currentSessions"
+        :key="session.id"
+        class="session-card"
+        :class="{
+          'session-card--selected': selectedSessionIds.includes(session.id),
+          'session-card--full': session.registered >= session.capacity,
+          'session-card--conflict': conflictingSessionIds.has(session.id),
+        }"
+        @click="session.registered < session.capacity && toggleSession(session.id)"
+        :aria-disabled="session.registered >= session.capacity"
+      >
+        <div class="card-top">
+          <span class="track-badge" :class="TRACK_BADGE_CLASS[session.track]">{{ session.track }}</span>
+          <div
+            class="card-checkbox"
+            :class="{ 'card-checkbox--checked': selectedSessionIds.includes(session.id) }"
+          >
+            <svg v-if="selectedSessionIds.includes(session.id)" width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M2 6l3 3 5-5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
           </div>
+        </div>
 
-          <h4 class="session-title">{{ session.title }}</h4>
-          <p class="session-speaker">{{ session.speaker }} · {{ session.speakerTitle }}</p>
+        <h4 class="session-title">{{ session.title }}</h4>
+        <p class="session-speaker">{{ session.speaker }}, {{ session.speakerTitle }}</p>
+        <p class="session-time">{{ formatTimeRange(session.date, session.endDate) }}</p>
 
-          <div class="session-footer">
-            <div class="spots-info">
-              <span
-                v-if="session.registered >= session.capacity"
-                class="full-badge"
-              >Full</span>
-              <span
-                v-else
-                class="spots-text"
-                :class="{ 'spots-text--urgent': spotsInfo(session).urgent }"
-              >{{ spotsInfo(session).text }}</span>
-            </div>
+        <div class="capacity-bar">
+          <div
+            class="capacity-fill"
+            :class="capacityBarClass(session)"
+            :style="{ width: capacityBarWidth(session) }"
+          />
+        </div>
 
-            <div v-if="conflictingSessionIds.has(session.id)" class="conflict-badge">
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                <path d="M6 2v5M6 9v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              </svg>
-              Time conflict
-            </div>
-
-            <button
-              v-if="session.registered < session.capacity"
-              class="select-btn"
-              :class="{ 'select-btn--selected': selectedSessionIds.includes(session.id) }"
-              type="button"
-              @click.stop="toggleSession(session.id)"
-            >
-              <svg v-if="selectedSessionIds.includes(session.id)" width="12" height="12" viewBox="0 0 12 12" fill="none">
-                <path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              {{ selectedSessionIds.includes(session.id) ? 'Selected' : 'Select' }}
-            </button>
-          </div>
+        <div class="card-footer">
+          <p class="spots-text" :class="spotsInfo(session).cls">{{ spotsInfo(session).text }}</p>
+          <span v-if="conflictingSessionIds.has(session.id)" class="conflict-badge">Time conflict</span>
         </div>
       </div>
     </div>
-
-    <p v-if="selectedSessionIds.length === 0" class="no-selection-hint">
-      No sessions selected yet. Select at least one session to attend.
-    </p>
   </div>
 </template>
 
@@ -139,15 +152,10 @@ function spotsInfo(session) {
   font-size: var(--font-size-h3);
   font-weight: 630;
   color: var(--text-neutral-default);
-  margin: 0 0 6px;
-}
-
-.step-subtitle {
-  font-size: var(--font-size-md);
-  color: var(--text-neutral-muted);
   margin: 0 0 20px;
 }
 
+// Alert
 .alert {
   display: flex;
   align-items: flex-start;
@@ -164,46 +172,56 @@ function spotsInfo(session) {
   }
 }
 
-.day-group {
-  margin-bottom: 28px;
-
-  &:last-child { margin-bottom: 0; }
-}
-
-.day-header {
+// Date tabs
+.date-tabs {
   display: flex;
-  align-items: baseline;
-  gap: 12px;
+  gap: 8px;
   margin-bottom: 14px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid rgba(0,0,0,0.07);
 }
 
-.day-title {
-  font-size: var(--font-size-subtitle1);
-  font-weight: 610;
-  color: var(--text-neutral-default);
-  margin: 0;
-}
-
-.day-count {
+.date-tab {
+  padding: 7px 20px;
+  border-radius: 20px;
   font-size: var(--font-size-sm);
-  color: var(--text-neutral-quiet);
+  font-weight: 610;
+  border: 1.5px solid var(--border-neutral-muted);
+  background: var(--bg-surface-l0);
+  color: var(--text-neutral-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &--active {
+    background: var(--bg-brand-emphasis-rest);
+    color: white;
+    border-color: var(--bg-brand-emphasis-rest);
+  }
+
+  &:hover:not(.date-tab--active) {
+    background: var(--bg-neutral-subtle-hover);
+    border-color: var(--border-neutral-emphasis);
+  }
 }
 
+.selection-count {
+  font-size: var(--font-size-sm);
+  color: var(--text-neutral-muted);
+  margin: 0 0 16px;
+}
+
+// 2-column grid
 .sessions-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 
 .session-card {
   border: 1.5px solid var(--border-neutral-muted);
   border-radius: 10px;
-  padding: 14px 16px;
+  padding: 16px;
   background: var(--bg-surface-l0);
+  cursor: pointer;
   transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
-  position: relative;
 
   &:hover:not(.session-card--full) {
     border-color: var(--border-brand-muted);
@@ -213,6 +231,7 @@ function spotsInfo(session) {
   &--selected {
     border-color: var(--border-brand-emphasis);
     background: var(--bg-brand-subtle-rest);
+    box-shadow: 0 0 0 3px var(--border-brand-opacity);
 
     &:hover {
       border-color: var(--border-brand-emphasis);
@@ -221,106 +240,137 @@ function spotsInfo(session) {
   }
 
   &--full {
+    opacity: 0.6;
+    cursor: not-allowed;
     background: var(--bg-surface-l1);
-    opacity: 0.65;
+
+    &:hover {
+      border-color: var(--border-neutral-muted);
+      background: var(--bg-surface-l1);
+    }
   }
 
-  &--conflict {
+  &--conflict:not(.session-card--full) {
     border-color: var(--border-warning-muted);
     background: var(--bg-warning-subtle-rest);
-
-    &.session-card--selected {
-      border-color: var(--border-warning-emphasis);
-    }
   }
 }
 
-.session-meta {
+.card-top {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .track-badge {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 610;
-  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 630;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 3px 8px;
   border-radius: 4px;
-  text-transform: capitalize;
-  border: 1px solid;
 
   &.track-main {
-    background: var(--bg-brand-muted-rest);
-    color: var(--text-brand-emphasis);
-    border-color: var(--border-brand-muted);
+    background: var(--bg-brand-emphasis-rest);
+    color: white;
   }
+
   &.track-frontend {
+    background: var(--bg-accent-emphasis-rest);
+    color: white;
+  }
+
+  &.track-backend {
     background: var(--bg-info-muted-rest);
     color: var(--text-info-emphasis);
-    border-color: var(--border-info-muted);
+    border: 1px solid var(--border-info-muted);
   }
-  &.track-backend {
-    background: var(--bg-accent-muted-rest);
-    color: var(--text-accent-emphasis);
-    border-color: var(--border-accent-muted);
-  }
+
   &.track-devops {
-    background: var(--bg-success-muted-rest);
-    color: var(--text-success-emphasis);
-    border-color: var(--border-success-muted);
+    background: var(--bg-warning-muted-rest);
+    color: var(--text-warning-emphasis);
+    border: 1px solid var(--border-warning-muted);
   }
 }
 
-.session-time {
-  font-size: var(--font-size-sm);
-  color: var(--text-neutral-muted);
+.card-checkbox {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1.5px solid var(--border-neutral-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s;
+
+  &--checked {
+    background: var(--bg-brand-emphasis-rest);
+    border-color: var(--bg-brand-emphasis-rest);
+  }
 }
 
 .session-title {
   font-size: var(--font-size-md);
-  font-weight: 610;
+  font-weight: 630;
   color: var(--text-neutral-default);
   margin: 0 0 4px;
+  line-height: 1.3;
+
+  .session-card--full & { color: var(--text-neutral-quiet); }
 }
 
 .session-speaker {
   font-size: var(--font-size-sm);
   color: var(--text-neutral-muted);
-  margin: 0 0 10px;
+  margin: 0 0 4px;
+
+  .session-card--full & { color: var(--text-neutral-quiet); }
 }
 
-.session-footer {
+.session-time {
+  font-size: var(--font-size-sm);
+  color: var(--text-neutral-quiet);
+  margin: 0 0 12px;
+}
+
+.capacity-bar {
+  height: 4px;
+  background: var(--bg-surface-l2);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.capacity-fill {
+  height: 100%;
+  border-radius: 2px;
+
+  &.bar--high   { background: var(--bg-brand-emphasis-rest); }
+  &.bar--medium { background: var(--bg-warning-emphasis-rest); }
+  &.bar--low    { background: var(--bg-accent-emphasis-rest); }
+  &.bar--full   { background: var(--bg-danger-emphasis-rest); }
+}
+
+.card-footer {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
-}
-
-.spots-info { flex: 1; }
-
-.full-badge {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 610;
-  padding: 2px 8px;
-  border-radius: 4px;
-  background: var(--bg-neutral-muted-rest);
-  color: var(--text-neutral-muted);
 }
 
 .spots-text {
   font-size: var(--font-size-sm);
-  color: var(--text-neutral-muted);
+  font-weight: 570;
+  margin: 0;
 
-  &--urgent { color: var(--text-warning-emphasis); font-weight: 570; }
+  &.spots--high     { color: var(--text-neutral-muted); }
+  &.spots--medium   { color: var(--text-warning-emphasis); }
+  &.spots--low      { color: var(--text-accent-default); }
+  &.spots--sold-out { color: var(--text-neutral-muted); }
 }
 
 .conflict-badge {
-  display: flex;
-  align-items: center;
-  gap: 4px;
   font-size: 11px;
   font-weight: 570;
   color: var(--text-warning-emphasis);
@@ -329,48 +379,8 @@ function spotsInfo(session) {
   border-radius: 4px;
 }
 
-.select-btn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 14px;
-  border-radius: 6px;
-  font-size: var(--font-size-sm);
-  font-weight: 570;
-  border: 1.5px solid var(--border-neutral-muted);
-  background: var(--bg-surface-l0);
-  color: var(--text-neutral-default);
-  cursor: pointer;
-  transition: all 0.15s;
-
-  &:hover:not(.select-btn--selected) {
-    border-color: var(--border-brand-emphasis);
-    color: var(--text-brand-emphasis);
-    background: var(--bg-brand-subtle-rest);
-  }
-
-  &--selected {
-    background: var(--bg-brand-emphasis-rest);
-    border-color: var(--bg-brand-emphasis-rest);
-    color: white;
-
-    &:hover {
-      background: var(--bg-brand-emphasis-hover);
-    }
-  }
-}
-
-.no-selection-hint {
-  font-size: var(--font-size-sm);
-  color: var(--text-neutral-quiet);
-  text-align: center;
-  padding: 20px;
-  border: 1px dashed var(--border-neutral-muted);
-  border-radius: 8px;
-  margin-top: 16px;
-}
-
 @media (max-width: 767px) {
   .step-content { padding: 16px; }
+  .sessions-grid { grid-template-columns: 1fr; }
 }
 </style>
